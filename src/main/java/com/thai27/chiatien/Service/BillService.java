@@ -1,49 +1,69 @@
 package com.thai27.chiatien.Service;
 
-import com.thai27.chiatien.dto.request.SplitBillRequest;
-import com.thai27.chiatien.dto.response.SplitBillResponse;
+import com.thai27.chiatien.DTO.Data.UserListDto;
+import com.thai27.chiatien.DTO.Request.SplitBillRequest;
+import com.thai27.chiatien.DTO.Response.BillBankQrResponse;
+import com.thai27.chiatien.DTO.Response.SplitBillResponse;
+import com.thai27.chiatien.Entity.ChiaTienUser;
+import com.thai27.chiatien.Repository.ChiaTienUserRepository;
+import com.thai27.chiatien.Ulti.ResponseModel;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class BillService {
-    public SplitBillResponse spitBill(SplitBillRequest splitBillRequest) {
 
-        List<String> memberList = splitBillRequest.getMemberList();
+    @Autowired
+    ChiaTienUserRepository chiaTienUserRepository;
 
-        Map<String, Long> paidAmount = splitBillRequest.getPaidAmount();
+    public ResponseModel<SplitBillResponse> splitBill(SplitBillRequest splitBillRequest) {
+        Map<Long, Long> paidAmount = splitBillRequest.getPaidAmount();
+        if (paidAmount == null) paidAmount = Collections.emptyMap();
+        List<Long> userIds = new ArrayList<>(paidAmount.keySet());
+        List<ChiaTienUser> listUserDto = chiaTienUserRepository.findUserByListId(userIds);
+        Map<Long, String> idToUsername = listUserDto.stream()
+                .collect(Collectors.toMap(ChiaTienUser::getId, ChiaTienUser::getUsername));
 
-        long totalAmount = paidAmount.values()
-                .stream()
+        int memberCount = idToUsername.size();
+        if (memberCount == 0) {
+            SplitBillResponse emptyResp = new SplitBillResponse();
+            emptyResp.setGetPaid(Collections.emptyMap());
+            emptyResp.setMustPaid(Collections.emptyMap());
+            return ResponseModel.warning(emptyResp, "Không tìm thấy user");
+        }
+
+        long totalAmount = paidAmount.values().stream()
                 .mapToLong(Long::longValue)
                 .sum();
 
-        long averageAmount = totalAmount / memberList.size();
+        long averageAmount = totalAmount / memberCount;
 
         Map<String, Long> mustPaid = new HashMap<>();
         Map<String, Long> getPaid = new HashMap<>();
-        for (String member : memberList) {
-            if (paidAmount.containsKey(member)) {
-                System.out.println(member + " exists in paidAmount");
-                Long amount = paidAmount.get(member);
-                if (amount > averageAmount) {
-                    Long memberAmount = amount - averageAmount;
-                    getPaid.put(member, memberAmount);
-                } else if (amount < averageAmount) {
-                    Long memberAmount = averageAmount - amount;
-                    mustPaid.put(member, memberAmount);
-                }
-            } else {
-                mustPaid.put(member, averageAmount);
+
+        for (Map.Entry<Long, String> entry : idToUsername.entrySet()) {
+            Long id = entry.getKey();
+            String username = entry.getValue();
+
+            Long paid = paidAmount.getOrDefault(id, 0L);
+
+            if (paid > averageAmount) {
+                getPaid.put(username, paid - averageAmount);
+            } else if (paid < averageAmount) {
+                mustPaid.put(username, averageAmount - paid);
             }
         }
 
         SplitBillResponse splitBillResponse = new SplitBillResponse();
         splitBillResponse.setGetPaid(getPaid);
         splitBillResponse.setMustPaid(mustPaid);
-        return splitBillResponse;
+        splitBillResponse.setAverageAmount(averageAmount);
+        splitBillResponse.setTotalAmount(totalAmount);
+        return ResponseModel.success(splitBillResponse, "Chia tiền thành công");
     }
+
+
 }

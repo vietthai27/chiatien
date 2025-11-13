@@ -1,9 +1,11 @@
 package com.thai27.chiatien.Entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -17,11 +19,16 @@ public class Bank {
 
     private String bankName;
 
-    private String bankNumber;
+    private String imageUrl;
 
-    private String qrCode;
+    private String imageFieldId;
 
-    @ManyToMany(targetEntity = ChiaTienUser.class, mappedBy = "banks", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(
+            mappedBy = "bank",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            fetch = FetchType.LAZY
+    )
     @JsonIgnore
-    private List<ChiaTienUser> chiaTienUsers;
+    private List<BankAccount> userBanks = new ArrayList<>();
 }

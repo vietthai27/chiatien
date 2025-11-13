@@ -1,4 +1,4 @@
-package com.thai27.chiatien.dto.request;
+package com.thai27.chiatien.DTO.Request;
 
 import lombok.Data;
 
@@ -7,6 +7,5 @@ import java.util.Map;
 
 @Data
 public class SplitBillRequest {
-    List<String> memberList;
-    Map<String, Long> paidAmount;
+    Map<Long, Long> paidAmount;
 }
